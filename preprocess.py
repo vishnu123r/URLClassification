@@ -1,31 +1,32 @@
 """
-This script preprocesses data for training the classidfier
+This script preprocesses data for classification
 """
 
-
 import pickle
-from nltk.corpus import stopwords
-import re
+from sklearn import cross_validation
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_selection import SelectPercentile, f_classif
 
-with open('data.pkl', 'rb') as f:
-    data = pickle.load(f)
-
-feature_text = list(data['URL'].values)
-
-ret_text_lst = []
-
-for t in feature_text:
-    if type(t) != str:
-         t = t.decode("UTF-8").encode('ascii','ignore')
-         
-    t = re.sub(r'[^a-zA-Z]',r' ',t)
-
-    del_words = ['www','http','com','co','uk','org','https']#list to be ommited from analysis
-    stop_words = set(stopwords.words("english"))
-    stop_words.update(del_words)
+def preprocess():
     
-    text = (i.strip() for i in t.split())
-    text = [t for t in text if t not in stop_words]
-    text = " ".join(text)
+    with open('feature.pkl','rb') as f:
+        feature = pickle.load(f)
+        
+    with open('label.pkl','rb') as f:
+        label = pickle.load(f)
+        
+    features_train, features_test, labels_train, labels_test = \
+    cross_validation.train_test_split(feature, label, test_size=0.5, random_state=42)
     
-    ret_text_lst.append(text)
+    vectorizer = TfidfVectorizer()
+    features_train_transformed = vectorizer.fit_transform(features_train)
+    features_test_transformed  = vectorizer.transform(features_test)
+    
+    selector = SelectPercentile(f_classif, percentile=10)
+    selector.fit(features_train_transformed, labels_train)
+    features_train_transformed = selector.transform(features_train_transformed).toarray()
+    features_test_transformed  = selector.transform(features_test_transformed).toarray()
+    
+    return features_train_transformed, features_test_transformed, labels_train, labels_test
+    
+    
